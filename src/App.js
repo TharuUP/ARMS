@@ -372,35 +372,64 @@ const App = () => {
     xhr.send(formData);
   }; 
   */}
-  const handleUpload = async (file, patientName) => {
-    const formData = new FormData();
+  const handleUpload = (file, patientName) => {
+    const id = Date.now() + file.name;
 
+    setUploads((prev) => [
+      ...prev,
+      { id, name: file.name, progress: 0, patientName }
+    ]);
+
+    const formData = new FormData();
     formData.append("file", file);
-    formData.append("upload_preset", "arms_upload");
+
+    // ✅ VERY IMPORTANT
+    formData.append("upload_preset", "arms_upload"); // your preset
     formData.append("folder", `patients/${patientName}`);
 
-    try {
-      const res = await fetch(
-        "https://api.cloudinary.com/v1_1/dvrdhfuyq/auto/upload",
-        {
-          method: "POST",
-          body: formData
-        }
+    const xhr = new XMLHttpRequest();
+
+    // ✅ PROGRESS BAR WORKS HERE
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === id ? { ...u, progress: percent } : u
+          )
+        );
+      }
+    };
+
+    xhr.onload = () => {
+      setUploads((prev) =>
+        prev.filter((u) => u.id !== id)
       );
 
-      const data = await res.json();
-
-      console.log("UPLOAD SUCCESS:", data);
+      console.log("UPLOAD RESPONSE:", xhr.responseText);
 
       alert("Uploaded ✅");
 
-      // reload files (optional)
-      fetchPatientFiles(patientName);
+      // ❌ remove this (backend broken)
+      // fetchPatientFiles(patientName);
+    };
 
-    } catch (err) {
-      console.error(err);
+    xhr.onerror = () => {
+      setUploads((prev) =>
+        prev.filter((u) => u.id !== id)
+      );
+
       alert("Upload failed ❌");
-    }
+    };
+
+    // ✅ FIXED URL (VERY IMPORTANT)
+    xhr.open(
+      "POST",
+      "https://api.cloudinary.com/v1_1/dvrdhfuyq/auto/upload"
+    );
+
+    xhr.send(formData);
   };
   // --- DATA SYNC WITH BACKEND ---
 
