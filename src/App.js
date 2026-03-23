@@ -788,7 +788,7 @@ const App = () => {
           {/* Logo */}
           <div className="flex justify-center mb-6">
             <img
-              src="/arms.png"
+              src="/ARMS.png"
               alt="ARMS Logo"
               className="h-20 object-contain bg-white px-4 py-2 rounded-xl shadow-lg"
             />
