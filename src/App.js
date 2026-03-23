@@ -376,12 +376,12 @@ const App = () => {
     const formData = new FormData();
 
     formData.append("file", file);
-    formData.append("upload_preset", "YOUR_PRESET_NAME");
+    formData.append("upload_preset", "arms_upload");
     formData.append("folder", `patients/${patientName}`);
 
     try {
       const res = await fetch(
-        "https://api.cloudinary.com/v1_1/dvrdhfuyq/image/upload",
+        "https://api.cloudinary.com/v1_1/dvrdhfuyq/auto/upload",
         {
           method: "POST",
           body: formData
