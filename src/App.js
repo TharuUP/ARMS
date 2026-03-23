@@ -328,7 +328,7 @@ const App = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
 
-  const handleUpload = (file, patientName) => {
+  {/* const handleUpload = (file, patientName) => {
     const id = Date.now() + file.name;
 
     setUploads((prev) => [
@@ -370,6 +370,37 @@ const App = () => {
 
     xhr.open("POST", "https://armslanka.pythonanywhere.com/api/upload");
     xhr.send(formData);
+  }; 
+  */}
+  const handleUpload = async (file, patientName) => {
+    const formData = new FormData();
+
+    formData.append("file", file);
+    formData.append("upload_preset", "YOUR_PRESET_NAME");
+    formData.append("folder", `patients/${patientName}`);
+
+    try {
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/dvrdhfuyq/image/upload",
+        {
+          method: "POST",
+          body: formData
+        }
+      );
+
+      const data = await res.json();
+
+      console.log("UPLOAD SUCCESS:", data);
+
+      alert("Uploaded ✅");
+
+      // reload files (optional)
+      fetchPatientFiles(patientName);
+
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed ❌");
+    }
   };
   // --- DATA SYNC WITH BACKEND ---
 
