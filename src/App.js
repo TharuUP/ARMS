@@ -1109,7 +1109,7 @@ const App = () => {
               return parseInt(m) - 1 === currentMonth && parseInt(y) === currentYear;
             };
 
-            const monthlyCases = cases.filter(c => isThisMonth(c.createdAt));
+            const monthlyCases = (cases || []).filter(c => isThisMonth(c.createdAt));
 
             const stats = [
 
@@ -1123,7 +1123,7 @@ const App = () => {
               },
               {
                 label: "Closed Files",
-                val: cases.filter(c => c.status === 'Closed').length,
+                val: (cases || []).filter(c => c.status === 'Closed').length,
                 icon: CheckCircle2, color: "slate"
               },
               { label: "Bill Audit", val: bills.length, icon: Receipt, color: "amber" },
@@ -1296,7 +1296,7 @@ const App = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {cases.filter(c => c.patientName.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
+                    {(cases || []).filter(c => c.patientName.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
                       <tr key={c.id} className="hover:bg-indigo-50/30 transition group">
                         <td className="px-8 py-6 font-black uppercase text-sm text-slate-800">{c.patientName}</td>
                         <td className="px-8 py-6 font-bold uppercase text-slate-500 text-xs">{c.insuranceCo}</td>
