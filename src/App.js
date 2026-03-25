@@ -257,9 +257,7 @@ const App = () => {
     setLoadingFiles(true);
 
     try {
-      const res = await fetch(
-        `https://armslanka.pythonanywhere.com/api/files/${patientName}`
-      );
+      const res = await fetch(`${API_BASE}/files/${patientName}`);
 
       const data = await res.json();
 
@@ -372,64 +370,26 @@ const App = () => {
     xhr.send(formData);
   }; 
   */}
-  const handleUpload = (file, patientName) => {
-    const id = Date.now() + file.name;
-
-    setUploads((prev) => [
-      ...prev,
-      { id, name: file.name, progress: 0, patientName }
-    ]);
-
+  const handleUpload = async (file, patientName) => {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("patientName", patientName);
 
-    // ✅ VERY IMPORTANT
-    formData.append("upload_preset", "arms_upload"); // your preset
-    formData.append("folder", `patients/${patientName}`);
+    try {
+      const res = await fetch(`${API_BASE}/upload`, {
+        method: "POST",
+        body: formData
+      });
 
-    const xhr = new XMLHttpRequest();
+      const data = await res.json();
 
-    // ✅ PROGRESS BAR WORKS HERE
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-
-        setUploads((prev) =>
-          prev.map((u) =>
-            u.id === id ? { ...u, progress: percent } : u
-          )
-        );
+      if (data.success) {
+        alert("Uploaded ✅");
+        fetchPatientFiles(patientName);
       }
-    };
-
-    xhr.onload = () => {
-      setUploads((prev) =>
-        prev.filter((u) => u.id !== id)
-      );
-
-      console.log("UPLOAD RESPONSE:", xhr.responseText);
-
-      alert("Uploaded ✅");
-
-      // ❌ remove this (backend broken)
-      // fetchPatientFiles(patientName);
-    };
-
-    xhr.onerror = () => {
-      setUploads((prev) =>
-        prev.filter((u) => u.id !== id)
-      );
-
+    } catch (err) {
       alert("Upload failed ❌");
-    };
-
-    // ✅ FIXED URL (VERY IMPORTANT)
-    xhr.open(
-      "POST",
-      "https://api.cloudinary.com/v1_1/dvrdhfuyq/auto/upload"
-    );
-
-    xhr.send(formData);
+    }
   };
   // --- DATA SYNC WITH BACKEND ---
 
@@ -558,24 +518,10 @@ const App = () => {
   };
 
   const downloadFile = async (file) => {
-    try {
-      const response = await fetch(file.url);
-      const blob = await response.blob();
+    const res = await fetch(`${API_BASE}/file-url/${file.file_id}`);
+    const data = await res.json();
 
-      const url = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = file.name || "file.pdf"; // ✅ force download name
-
-      document.body.appendChild(link);
-      link.click();
-
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Download failed:", err);
-    }
+    window.open(data.url, "_blank");
   };
 
   const saveProfile = async () => {
@@ -596,15 +542,7 @@ const App = () => {
       return;
     }
 
-    const res = await fetch("https://armslanka.pythonanywhere.com/api/delete-file", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        public_id: public_id   // 🔥 THIS MUST EXIST
-      })
-    });
+
 
     const data = await res.json();
     console.log("DELETE RESPONSE:", data);
