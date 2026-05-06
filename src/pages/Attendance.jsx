@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const API_BASE = "https://armslanka.pythonanywhere.com/api";
+const API_BASE = "https://medical-backend-tfk0.onrender.com/api";
 
 const Attendance = ({ currentUser }) => {
     const [selectedMonth, setSelectedMonth] = useState("");
