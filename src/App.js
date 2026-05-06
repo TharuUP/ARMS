@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import Attendance from "./pages/Attendance";
+import AttendanceReport from "./pages/AttendanceReport";
 import HOSPITAL_NETWORK from "./data/hospitals";
 import {
   Plus,
@@ -40,7 +42,7 @@ import {
 
 // --- API CONFIGURATION ---
 // Change this to your PythonAnywhere URL (e.g., https://yourname.pythonanywhere.com/api)
-const API_BASE = "https://armslanka.pythonanywhere.com/api";
+const API_BASE = "https://medical-backend-tfk0.onrender.com/api";
 
 
 
@@ -86,6 +88,7 @@ const App = () => {
   });
   // UI State
   const [view, setView] = useState('dashboard');
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
 
@@ -95,7 +98,7 @@ const App = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [gopType, setGopType] = useState('consultation');
-
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
 
   // Form Initialization
   const initialCaseForm = {
@@ -370,36 +373,78 @@ const App = () => {
     xhr.send(formData);
   }; 
   */}
-  const handleUpload = async (file, patientName) => {
+  const handleUpload = (file, patientName) => {
+    const id = Date.now() + file.name;
+
+    // add to UI list
+    setUploads((prev) => [
+      ...prev,
+      { id, name: file.name, progress: 0, patientName }
+    ]);
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("patientName", patientName);
 
-    try {
-      const res = await fetch(`${API_BASE}/upload`, {
-        method: "POST",
-        body: formData
-      });
+    const xhr = new XMLHttpRequest();
 
-      const data = await res.json();
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
 
-      if (data.success) {
-        alert("Uploaded ✅");
-        fetchPatientFiles(patientName);
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === id ? { ...u, progress: percent } : u
+          )
+        );
       }
-    } catch (err) {
-      alert("Upload failed ❌");
-    }
-  };
-  // --- DATA SYNC WITH BACKEND ---
+    };
 
+    xhr.onload = () => {
+      try {
+        const res = JSON.parse(xhr.responseText);
+
+        if (res.success) {
+          fetchPatientFiles(patientName);
+        } else {
+          alert("Upload failed ❌");
+        }
+      } catch {
+        alert("Upload error ❌");
+      }
+
+      // remove progress bar
+      setUploads((prev) => prev.filter((u) => u.id !== id));
+    };
+
+    xhr.onerror = () => {
+      alert("Upload failed ❌");
+      setUploads((prev) => prev.filter((u) => u.id !== id));
+    };
+
+    xhr.open("POST", `${API_BASE}/upload`);
+    xhr.send(formData);
+  };
+
+  // --- DATA SYNC WITH BACKEND ---
+  useEffect(() => {
+    if (view === 'case-vault' && formData.id && formData.patientName) {
+
+      const patientKey = `${formData.id}_${formData.patientName}`; // ✅ ADD
+
+      const interval = setInterval(() => {
+        fetchPatientFiles(patientKey);
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [view, formData.id, formData.patientName]);
   // Locate your useEffect (around line 180) and update it to this:
   useEffect(() => {
     if (isLoggedIn) {
       fetchCases();
       loadProfile();
 
-      // ✅ FETCH USERS IF ADMIN
       if (currentUser.role === 'Admin') {
         fetchUsers();
       }
@@ -407,6 +452,14 @@ const App = () => {
       if (['Admin', 'Staff'].includes(currentUser.role)) {
         fetchBills();
       }
+
+      // 🔥 AUTO REFRESH EVERY 5 SECONDS
+      const interval = setInterval(() => {
+        fetchCases();
+        fetchBills();
+      }, 5000);
+
+      return () => clearInterval(interval); // cleanup
     }
   }, [isLoggedIn, currentUser.name]);
 
@@ -517,11 +570,8 @@ const App = () => {
     window.open(file.url, "_blank");
   };
 
-  const downloadFile = async (file) => {
-    const res = await fetch(`${API_BASE}/file-url/${file.file_id}`);
-    const data = await res.json();
-
-    window.open(data.url, "_blank");
+  const downloadFile = (file) => {
+    window.open(file.url, "_blank");
   };
 
   const saveProfile = async () => {
@@ -536,22 +586,6 @@ const App = () => {
 
     alert("Saved ✅");
   };
-  const deleteFile = async (public_id) => {
-    if (!public_id) {
-      console.error("❌ public_id missing");
-      return;
-    }
-
-
-
-    const data = await res.json();
-    console.log("DELETE RESPONSE:", data);
-
-    if (data.success) {
-      alert("Deleted ✅");
-      fetchPatientFiles(formData.patientName);
-    }
-  };
 
   const deleteCase = async (id) => {
     if (!window.confirm("Delete this case?")) return;
@@ -563,6 +597,7 @@ const App = () => {
     fetchCases();
   };
   const [caseDocs, setCaseDocs] = useState([]);
+
 
   {/*const uploadToDrive = async (file, patientName) => {
     if (!token) {
@@ -895,6 +930,69 @@ const App = () => {
             <button onClick={() => setView('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${view === 'dashboard' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
               <LayoutDashboard size={18} /> Home
             </button>
+            {/*}
+            <button
+              onClick={() => setView('attendance')}
+
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${view === 'attendance'
+                ? 'bg-indigo-600 text-white'
+                : 'hover:bg-slate-800 hover:text-white'
+                }`}
+            >
+              <Clock size={18} /> Attendance
+            </button>
+
+            {['Admin', 'Manager'].includes(currentUser.role) && (
+              <button
+                onClick={() => setView('attendance-report')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${view === 'attendance-report'
+                  ? 'bg-indigo-600 text-white'
+                  : 'hover:bg-slate-800 hover:text-white'
+                  }`}
+              >
+                <Clock size={18} /> Attendance Report
+              </button>
+            )}
+*/}
+            {/* ATTENDANCE DROPDOWN */}
+            <div>
+              <button
+                onClick={() => setAttendanceOpen(!attendanceOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-800 hover:text-white"
+              >
+                <div className="flex items-center gap-3">
+                  <Clock size={18} /> Attendance
+                </div>
+                <ChevronRight
+                  className={`transition ${attendanceOpen ? 'rotate-90' : ''}`}
+                  size={16}
+                />
+              </button>
+
+              {attendanceOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+
+                  {/* Attendance */}
+                  <button
+                    onClick={() => setView('attendance')}
+                    className="block w-full text-left px-3 py-2 text-xs font-bold uppercase hover:text-white"
+                  >
+                    🕒 Attendance
+                  </button>
+
+                  {/* Attendance Report (Admin/Manager only) */}
+                  {['Admin', 'Manager'].includes(currentUser.role) && (
+                    <button
+                      onClick={() => setView('attendance-report')}
+                      className="block w-full text-left px-3 py-2 text-xs font-bold uppercase hover:text-white"
+                    >
+                      📊 Attendance Report
+                    </button>
+                  )}
+
+                </div>
+              )}
+            </div>
             <button onClick={() => { setFormData(initialCaseForm); setView('new-case'); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${view === 'new-case' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
               <Plus size={18} /> New Case
             </button>
@@ -1191,7 +1289,12 @@ const App = () => {
               </div>
             );
           })()}
-
+          {view === 'attendance' && (
+            <Attendance currentUser={currentUser} />
+          )}
+          {view === 'attendance-report' && (
+            <AttendanceReport currentUser={currentUser} />
+          )}
           {/* HOSPITAL NETWORK VIEW */}
           {view === 'hospitals' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1368,80 +1471,90 @@ const App = () => {
                 Connect Google Drive
               </button>*/}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {cases.map((c) => (
-                  <div key={c.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        <User size={24} />
-                      </div>
-                      <div className="flex-1 truncate">
-                        <h3 className="font-black uppercase text-sm truncate">{c.patientName}</h3>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{c.refNumber}</p>
-                      </div>
-                    </div>
-                    {uploads
-                      .filter((u) => u.patientName === c.patientName)
-                      .map((u) => (
-                        <div key={u.id} className="mb-2">
-                          <p className="text-xs font-bold text-slate-600">
-                            {u.name}
-                          </p>
+                {cases.map((c) => {
+                  const patientKey = `${c.id}_${c.patientName}`;  // ✅ ADD THIS
 
-                          <div className="w-full bg-slate-200 rounded-xl overflow-hidden">
-                            <div
-                              className="bg-indigo-600 text-white text-xs font-bold text-center py-1 transition-all duration-300"
-                              style={{ width: `${u.progress}%` }}
-                            >
-                              {u.progress}%
+                  return (
+
+                    <div key={c.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                          <User size={24} />
+                        </div>
+                        <div className="flex-1 truncate">
+                          <h3 className="font-black uppercase text-sm truncate">{c.patientName}</h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{c.refNumber}</p>
+                        </div>
+                      </div>
+                      {uploads
+                        .filter((u) => u.patientName === patientKey)
+                        .map((u) => (
+                          <div key={u.id} className="mb-2">
+                            <p className="text-xs font-bold text-slate-600">
+                              {u.name}
+                            </p>
+
+                            <div className="w-full bg-slate-200 rounded-xl overflow-hidden">
+                              <div
+                                className="bg-indigo-600 text-white text-xs font-bold text-center py-1 transition-all duration-300"
+                                style={{ width: `${u.progress}%` }}
+                              >
+                                {u.progress}%
+                              </div>
                             </div>
                           </div>
+                        ))}
+                      {uploading && (
+                        <div className="w-full bg-slate-200 rounded-xl overflow-hidden mb-4">
+                          <div
+                            className="bg-indigo-600 text-white text-xs font-bold text-center py-1 transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          >
+                            {uploadProgress}%
+                          </div>
                         </div>
-                      ))}
-                    {uploading && (
-                      <div className="w-full bg-slate-200 rounded-xl overflow-hidden mb-4">
-                        <div
-                          className="bg-indigo-600 text-white text-xs font-bold text-center py-1 transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        >
-                          {uploadProgress}%
+                      )}
+                      {uploading && (
+                        <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs mb-2">
+                          <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                          Uploading...
                         </div>
-                      </div>
-                    )}
-                    {uploading && (
-                      <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs mb-2">
-                        <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                        Uploading...
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
 
-                      <label className="py-3 bg-slate-900 text-white rounded-xl font-black text-[9px] uppercase flex items-center justify-center gap-2 cursor-pointer hover:bg-indigo-600 transition">
-                        <Plus size={14} /> Upload
-                        <input
-                          type="file"
-                          multiple   // ✅ ADD THIS
-                          className="hidden"
-                          onChange={(e) => {
-                            const files = e.target.files;
-                            for (let i = 0; i < files.length; i++) {
-                              handleUpload(files[i], c.patientName);
-                            }
+                        <label className="py-3 bg-slate-900 text-white rounded-xl font-black text-[9px] uppercase flex items-center justify-center gap-2 cursor-pointer hover:bg-indigo-600 transition">
+                          <Plus size={14} /> Upload
+                          <input
+                            type="file"
+                            multiple   // ✅ ADD THIS
+                            className="hidden"
+                            onChange={(e) => {
+                              const files = e.target.files;
+
+                              const patientKey = `${c.id}_${c.patientName}`;  // ✅ ADD HERE
+
+                              for (let i = 0; i < files.length; i++) {
+                                handleUpload(files[i], patientKey);
+                              }
+                            }}
+                          />
+                        </label>
+                        <button
+                          onClick={() => {
+                            const patientKey = `${c.id}_${c.patientName}`; // ✅ ADD
+
+                            setFormData(c);
+                            fetchPatientFiles(patientKey);
+                            setView('case-vault');
                           }}
-                        />
-                      </label>
-                      <button
-                        onClick={() => {
-                          setFormData(c);
-                          fetchPatientFiles(c.patientName);
-                          setView('case-vault');
-                        }}
-                        className="py-3 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[9px] uppercase hover:bg-indigo-100 transition"
-                      >
-                        View Folder
-                      </button>
+                          className="py-3 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[9px] uppercase hover:bg-indigo-100 transition"
+                        >
+                          View Folder
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1485,12 +1598,7 @@ const App = () => {
                         Download
                       </button>
 
-                      <button
-                        onClick={() => deleteFile(file.public_id)}
-                        className="text-rose-600 text-xs font-bold"
-                      >
-                        Delete
-                      </button>
+
                     </div>
                   ))}
                 </div>
