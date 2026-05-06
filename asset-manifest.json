@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/ARMS/static/css/main.63f0d0ef.css",
+    "main.js": "/ARMS/static/js/main.38189656.js",
+    "static/js/453.3b36a757.chunk.js": "/ARMS/static/js/453.3b36a757.chunk.js",
+    "index.html": "/ARMS/index.html",
+    "main.63f0d0ef.css.map": "/ARMS/static/css/main.63f0d0ef.css.map",
+    "main.38189656.js.map": "/ARMS/static/js/main.38189656.js.map",
+    "453.3b36a757.chunk.js.map": "/ARMS/static/js/453.3b36a757.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.63f0d0ef.css",
+    "static/js/main.38189656.js"
+  ]
+}

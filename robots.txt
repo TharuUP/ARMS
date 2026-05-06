@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://arms-zeta.vercel.app/sitemap.xml
